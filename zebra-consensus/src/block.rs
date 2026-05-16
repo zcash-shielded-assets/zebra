@@ -164,7 +164,6 @@ where
             tracing::info!(
                 hash = ?hash,
                 height = ?block.coinbase_height(),
-                network = ?network,
                 "starting semantic block verification"
             );
 
