@@ -1373,6 +1373,7 @@ version = "0.2.2"
 source = "git+https://github.com/QED-it/librustzcash?rev=acd68d123997ea9788c14244bc3805c6d2e8d68c#acd68d123997ea9788c14244bc3805c6d2e8d68c"
 dependencies = [
  "blake2b_simd",
+ "cc",
  "core2",
  "document-features",
 ]

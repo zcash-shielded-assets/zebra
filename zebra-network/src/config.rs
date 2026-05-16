@@ -593,6 +593,7 @@ impl<'de> Deserialize<'de> for Config {
             slow_start_interval: Option<u32>,
             target_difficulty_limit: Option<String>,
             disable_pow: Option<bool>,
+            no_peers_required: Option<bool>,
             genesis_hash: Option<String>,
             activation_heights: Option<ConfiguredActivationHeights>,
             pre_nu6_funding_streams: Option<ConfiguredFundingStreams>,
@@ -688,6 +689,7 @@ impl<'de> Deserialize<'de> for Config {
                     slow_start_interval,
                     target_difficulty_limit,
                     disable_pow,
+                    no_peers_required,
                     genesis_hash,
                     activation_heights,
                     pre_nu6_funding_streams,
@@ -725,6 +727,10 @@ impl<'de> Deserialize<'de> for Config {
 
                 if let Some(disable_pow) = disable_pow {
                     params_builder = params_builder.with_disable_pow(disable_pow);
+                }
+
+                if let Some(no_peers_required) = no_peers_required {
+                    params_builder = params_builder.with_no_peers_required(no_peers_required);
                 }
 
                 // Retain default Testnet activation heights unless there's an empty [testnet_parameters.activation_heights] section.

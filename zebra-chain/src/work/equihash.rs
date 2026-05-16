@@ -5,7 +5,7 @@ use std::{fmt, io};
 use serde_big_array::BigArray;
 
 use crate::{
-    block::Header,
+    block::{Header, Hash},
     serialization::{
         zcash_serialize_bytes, SerializationError, ZcashDeserialize, ZcashDeserializeInto,
         ZcashSerialize,
@@ -131,23 +131,130 @@ impl Solution {
     /// It can run for minutes or hours if the network difficulty is high.
     #[cfg(feature = "internal-miner")]
     #[allow(clippy::unwrap_in_result)]
-    pub fn solve<F>(
+    pub fn solve_genesis<F>(
         mut header: Header,
         mut _cancel_fn: F,
     ) -> Result<AtLeastOne<Header>, SolverCancelled>
     where
         F: FnMut() -> Result<(), SolverCancelled>,
     {
-        // TODO: Function code was removed as part of https://github.com/ZcashFoundation/zebra/issues/8180
-        // Find the removed code at https://github.com/ZcashFoundation/zebra/blob/v1.5.1/zebra-chain/src/work/equihash.rs#L115-L166
-        // Restore the code when conditions are met. https://github.com/ZcashFoundation/zebra/issues/8183
-        header.solution = Solution::for_proposal();
+        // Build the 108-byte pre-nonce portion of the header using the same
+        // method as Solution::check() - serialize the full header and extract
+        // the pre-nonce portion. This ensures consistency and avoids bugs.
+        let mut serialized = Vec::with_capacity(Solution::INPUT_LENGTH + 32);
+        header
+            .zcash_serialize(&mut serialized)
+            .expect("serialization to vec can't fail");
+        let pre_nonce = &serialized[0..Solution::INPUT_LENGTH];
+
+        // Iterate through nonces, running the Tromp solver for each.
+        // The solver finds all valid Equihash solutions for the given nonce.
+        // We check each solution to see if the resulting block hash meets difficulty.
+
+        let max_nonces = 50_000u32; // Try up to 50K nonces
+
+        for nonce_idx in 0..max_nonces {
+            _cancel_fn()?;
+
+            // Log progress every 5K nonces
+            if nonce_idx % 5_000 == 0 {
+                tracing::info!(
+                    nonce_idx,
+                    max_nonces,
+                    difficulty_threshold = ?header.difficulty_threshold,
+                    "mining in progress"
+                );
+                println!("mining {nonce_idx} {:?}", header.difficulty_threshold);
+            }
+
+            let mut nonce_arr = [0u8; 32];
+            nonce_arr[0..4].copy_from_slice(&nonce_idx.to_le_bytes());
+
+            // Create a callback that provides just this nonce
+            // The solver will find all valid Equihash solutions for this nonce
+            let nonce_for_solver = nonce_arr;
+            let mut nonce_provided = false;
+            let next_nonce = move || -> Option<[u8; 32]> {
+                if !nonce_provided {
+                    nonce_provided = true;
+                    Some(nonce_for_solver)
+                } else {
+                    None
+                }
+            };
+
+            // Run the solver for this nonce
+            let solutions = equihash::tromp::solve_200_9(&pre_nonce, next_nonce);
+
+            // Check all solutions for this nonce
+            for solution_bytes in solutions.iter() {
+                let mut sol_arr = [0u8; SOLUTION_SIZE];
+                let len = solution_bytes.len().min(SOLUTION_SIZE);
+                sol_arr[..len].copy_from_slice(&solution_bytes[..len]);
+
+                header.nonce = crate::fmt::HexDebug(nonce_arr);
+                header.solution = Solution::Common(sol_arr);
+
+                // Verify the equihash solution is valid
+                if header.solution.check(&header).is_ok() {
+                    // Check if the block hash meets difficulty
+                    // Use Hash::from(&header) which correctly computes the hash
+                    // without incorrectly reversing bytes
+                    let hash = Hash::from(&header);
+
+                    if let Some(expanded_difficulty) = header.difficulty_threshold.to_expanded() {
+                        tracing::trace!(
+                            nonce_idx,
+                            hash = %hash,
+                            difficulty = %expanded_difficulty,
+                            hash_le_difficulty = hash <= expanded_difficulty,
+                            "checking equihash solution"
+                        );
+                        if hash <= expanded_difficulty {
+                            tracing::info!(
+                                nonce_idx,
+                                hash = %hash,
+                                "found valid block meeting difficulty"
+                            );
+                            println!("solution {nonce_idx} {}", hex::encode(&hash.0));
+                            return Ok(AtLeastOne::from_one(header));
+                        }
+                    }
+                }
+            }
+        }
+
+        // No valid solution found within the attempt limit.
+        tracing::warn!(
+            max_nonces,
+            difficulty_threshold = ?header.difficulty_threshold,
+            "equihash solver found no valid solution, using placeholder"
+        );
+        header.nonce = crate::fmt::HexDebug([0u8; 32]);
+        header.solution = Solution::Common([0; SOLUTION_SIZE]);
+
+        // Calculate the hash of the placeholder block for debugging
+        let hash = Hash::from(&header);
+        tracing::warn!(
+            placeholder_hash = %hash,
+            "using placeholder block with hash"
+        );
+
         Ok(AtLeastOne::from_one(header))
     }
 
-    // TODO: Some methods were removed as part of https://github.com/ZcashFoundation/zebra/issues/8180
-    // Find the removed code at https://github.com/ZcashFoundation/zebra/blob/v1.5.1/zebra-chain/src/work/equihash.rs#L171-L196
-    // Restore the code when conditions are met. https://github.com/ZcashFoundation/zebra/issues/8183
+    /// Alias for `solve_genesis` to maintain compatibility.
+    #[cfg(feature = "internal-miner")]
+    #[allow(clippy::unwrap_in_result)]
+    pub fn solve<F>(
+        header: Header,
+        cancel_fn: F,
+    ) -> Result<AtLeastOne<Header>, SolverCancelled>
+    where
+        F: FnMut() -> Result<(), SolverCancelled>,
+    {
+        Self::solve_genesis(header, cancel_fn)
+    }
 }
 
 impl PartialEq<Solution> for Solution {

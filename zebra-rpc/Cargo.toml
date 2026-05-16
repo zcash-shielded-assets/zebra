@@ -42,7 +42,7 @@ getblocktemplate-rpcs = [
 ]
 
 # Experimental internal miner support
-internal-miner = []
+internal-miner = ["zebra-chain/internal-miner"]
 
 # Test-only features
 proptest-impl = [

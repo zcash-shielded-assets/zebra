@@ -4,12 +4,9 @@ use std::{collections::BTreeMap, fmt};
 use crate::{
     block::{self, Height, HeightDiff},
     parameters::{
-        constants::{magics, SLOW_START_INTERVAL, SLOW_START_SHIFT},
-        network_upgrade::TESTNET_ACTIVATION_HEIGHTS,
-        subsidy::{funding_stream_address_period, FUNDING_STREAM_RECEIVER_DENOMINATOR},
-        Network, NetworkKind, NetworkUpgrade, NETWORK_UPGRADES_IN_ORDER,
+        NETWORK_UPGRADES_IN_ORDER, Network, NetworkKind, NetworkUpgrade, constants::{SLOW_START_INTERVAL, SLOW_START_SHIFT, magics}, network_upgrade::TESTNET_ACTIVATION_HEIGHTS, subsidy::{FUNDING_STREAM_RECEIVER_DENOMINATOR, funding_stream_address_period}
     },
-    work::difficulty::{ExpandedDifficulty, U256},
+    work::difficulty::{CompactDifficulty, ExpandedDifficulty, U256},
 };
 
 use super::{
@@ -235,6 +232,10 @@ pub struct ParametersBuilder {
     target_difficulty_limit: ExpandedDifficulty,
     /// A flag for disabling proof-of-work checks when Zebra is validating blocks
     disable_pow: bool,
+    /// A flag that makes the node able to operate when no peers are available,
+    /// even if the synchronizer hasn't reached the chain tip. Enables mining
+    /// without needing to connect to other nodes.
+    no_peers_required: bool,
     /// The pre-Blossom halving interval for this network
     pre_blossom_halving_interval: HeightDiff,
     /// The post-Blossom halving interval for this network
@@ -269,6 +270,7 @@ impl Default for ParametersBuilder {
                 .to_expanded()
                 .expect("difficulty limits are valid expanded values"),
             disable_pow: false,
+            no_peers_required: false,
             pre_nu6_funding_streams: PRE_NU6_FUNDING_STREAMS_TESTNET.clone(),
             post_nu6_funding_streams: POST_NU6_FUNDING_STREAMS_TESTNET.clone(),
             should_lock_funding_stream_address_period: false,
@@ -444,6 +446,12 @@ impl ParametersBuilder {
         self
     }
 
+    /// Sets the `no_peers_required` flag to be used in the [`Parameters`] being built.
+    pub fn with_no_peers_required(mut self, no_peers: bool) -> Self {
+        self.no_peers_required = no_peers;
+        self
+    }
+
     /// Sets the pre and post Blosssom halving intervals to be used in the [`Parameters`] being built.
     pub fn with_halving_interval(mut self, pre_blossom_halving_interval: HeightDiff) -> Self {
         if self.should_lock_funding_stream_address_period {
@@ -469,6 +477,7 @@ impl ParametersBuilder {
             should_lock_funding_stream_address_period: _,
             target_difficulty_limit,
             disable_pow,
+            no_peers_required,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
         } = self;
@@ -483,6 +492,7 @@ impl ParametersBuilder {
             post_nu6_funding_streams,
             target_difficulty_limit,
             disable_pow,
+            no_peers_required,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
         }
@@ -521,6 +531,7 @@ impl ParametersBuilder {
             should_lock_funding_stream_address_period: _,
             target_difficulty_limit,
             disable_pow,
+            no_peers_required: _,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
         } = Self::default();
@@ -565,6 +576,9 @@ pub struct Parameters {
     target_difficulty_limit: ExpandedDifficulty,
     /// A flag for disabling proof-of-work checks when Zebra is validating blocks
     disable_pow: bool,
+    /// A flag that makes the node able to operate when no peers are available,
+    /// even if the synchronizer hasn't reached the chain tip.
+    no_peers_required: bool,
     /// Pre-Blossom halving interval for this network
     pre_blossom_halving_interval: HeightDiff,
     /// Post-Blossom halving interval for this network
@@ -587,8 +601,6 @@ impl Parameters {
         ParametersBuilder::default()
     }
 
-    /// Accepts a [`ConfiguredActivationHeights`].
-    ///
     /// Creates an instance of [`Parameters`] with `Regtest` values.
     pub fn new_regtest(
         nu5_activation_height: Option<u32>,
@@ -652,6 +664,7 @@ impl Parameters {
             post_nu6_funding_streams,
             target_difficulty_limit,
             disable_pow,
+            no_peers_required: _,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
         } = Self::new_regtest(None, None, None);
@@ -718,6 +731,11 @@ impl Parameters {
         self.disable_pow
     }
 
+    /// Returns true if this network should operate without requiring peer connections.
+    pub fn no_peers_required(&self) -> bool {
+        self.no_peers_required
+    }
+
     /// Returns the pre-Blossom halving interval for this network
     pub fn pre_blossom_halving_interval(&self) -> HeightDiff {
         self.pre_blossom_halving_interval
@@ -734,6 +752,15 @@ impl Network {
     pub fn disable_pow(&self) -> bool {
         if let Self::Testnet(params) = self {
             params.disable_pow()
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if this network should operate without requiring peer connections.
+    pub fn no_peers_required(&self) -> bool {
+        if let Self::Testnet(params) = self {
+            params.no_peers_required()
         } else {
             false
         }

@@ -196,6 +196,12 @@ impl AdjustedDifficulty {
     /// Implements `ThresholdBits` from the Zcash specification. (Which excludes the
     /// Testnet minimum difficulty adjustment.)
     fn threshold_bits(&self) -> CompactDifficulty {
+        // > PoWLimit, if height ≤ PoWAveragingWindow
+        // https://zips.z.cash/protocol/protocol.pdf#blockheader
+        if self.candidate_height.0 <= POW_AVERAGING_WINDOW as u32 {
+            return self.network.target_difficulty_limit().to_compact();
+        }
+
         let averaging_window_timespan = NetworkUpgrade::averaging_window_timespan_for_height(
             &self.network,
             self.candidate_height,

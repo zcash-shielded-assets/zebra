@@ -51,14 +51,41 @@ pub(crate) fn validate_and_commit_non_finalized(
     non_finalized_state: &mut NonFinalizedState,
     prepared: SemanticallyVerifiedBlock,
 ) -> Result<(), CommitSemanticallyVerifiedError> {
-    check::initial_contextual_validity(finalized_state, non_finalized_state, &prepared)?;
+    let block_height = prepared.height;
+    let block_hash = prepared.hash;
     let parent_hash = prepared.block.header.previous_block_hash;
 
-    if finalized_state.finalized_tip_hash() == parent_hash {
+    tracing::debug!(
+        block_height = ?block_height,
+        block_hash = ?block_hash,
+        ?parent_hash,
+        finalized_tip_hash = ?finalized_state.finalized_tip_hash(),
+        "validate_and_commit_non_finalized: starting validation and commit"
+    );
+
+    check::initial_contextual_validity(finalized_state, non_finalized_state, &prepared)?;
+
+    let is_new_chain = finalized_state.finalized_tip_hash() == parent_hash;
+
+    tracing::debug!(
+        block_height = ?block_height,
+        block_hash = ?block_hash,
+        ?parent_hash,
+        ?is_new_chain,
+        "validate_and_commit_non_finalized: contextual checks passed, committing to chain"
+    );
+
+    if is_new_chain {
         non_finalized_state.commit_new_chain(prepared, finalized_state)?;
     } else {
         non_finalized_state.commit_block(prepared, finalized_state)?;
     }
+
+    tracing::debug!(
+        block_height = ?block_height,
+        block_hash = ?block_hash,
+        "validate_and_commit_non_finalized: successfully committed"
+    );
 
     Ok(())
 }
@@ -236,6 +263,7 @@ pub fn write_blocks_from_channels(
         // At this point, we know that all the block's descendants
         // are invalid, because we checked all the consensus rules before
         // committing the failing ancestor block to the non-finalized state.
+        let child_height = queued_child.height;
         if let Some(parent_error) = parent_error {
             tracing::trace!(
                 ?child_hash,
@@ -244,7 +272,12 @@ pub fn write_blocks_from_channels(
             );
             result = Err(parent_error.clone());
         } else {
-            tracing::trace!(?child_hash, "validating queued child");
+            tracing::debug!(
+                ?child_hash,
+                ?parent_hash,
+                block_height = ?child_height,
+                "starting validation for queued child block"
+            );
             result = validate_and_commit_non_finalized(
                 &finalized_state.db,
                 &mut non_finalized_state,
@@ -258,6 +291,15 @@ pub fn write_blocks_from_channels(
         //       and send the result on rsp_tx here
 
         if let Err(ref error) = result {
+            tracing::warn!(
+                ?child_hash,
+                ?parent_hash,
+                block_height = ?child_height,
+                error = ?error,
+                error_display = %error,
+                "block validation and commit failed"
+            );
+
             // Update the caller with the error.
             let _ = rsp_tx.send(result.clone().map(|()| child_hash).map_err(BoxError::from));
 
@@ -273,6 +315,13 @@ pub fn write_blocks_from_channels(
             // Skip the things we only need to do for successfully committed blocks
             continue;
         }
+
+        tracing::info!(
+            ?child_hash,
+            ?parent_hash,
+            block_height = ?child_height,
+            "block validation and commit succeeded"
+        );
 
         // Committing blocks to the finalized state keeps the same chain,
         // so we can update the chain seen by the rest of the application now.
