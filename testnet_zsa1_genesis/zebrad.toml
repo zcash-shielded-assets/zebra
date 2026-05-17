@@ -13,10 +13,10 @@ checkpoint_sync = true
 
 [network]
 cache_dir = true
-listen_addr = "[::]:18234"
+listen_addr = "0.0.0.0:18233"
 network = "Testnet"
 #initial_testnet_peers = ["192.168.18.43:18233"]
-initial_testnet_peers = ["103.204.117.164:18233"]
+initial_testnet_peers = ["34.122.191.100:18233"]
 
 [rpc]
 listen_addr = "127.0.0.1:18232"
