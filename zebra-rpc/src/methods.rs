@@ -109,6 +109,7 @@ use crate::{
 pub(crate) mod hex_data;
 pub(crate) mod trees;
 pub(crate) mod types;
+mod create_genesis_data;
 
 use hex_data::HexData;
 use trees::{GetSubtreesByIndexResponse, GetTreestateResponse, SubtreeRpcData};

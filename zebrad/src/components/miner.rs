@@ -26,6 +26,8 @@ use zebra_chain::{
 };
 use zebra_network::AddressBookPeers;
 use zebra_node_services::mempool;
+use zebra_rpc::client::SubmitBlockResponse;
+
 use zebra_rpc::{
     client::{
         BlockTemplateTimeSource,
@@ -498,22 +500,35 @@ where
                 .expect("serializing to Vec never fails");
 
             match rpc.submit_block(HexData(data), None).await {
-                Ok(success) => {
-                    info!(
-                        ?height,
-                        hash = ?block.hash(),
-                        ?solver_id,
-                        ?success,
-                        "successfully mined a new block",
-                    );
-                    any_success = true;
+                Ok(response) => {
+                    match response {
+                        SubmitBlockResponse::Accepted => {
+                            info!(
+                                ?height,
+                                hash = ?block.hash(),
+                                ?solver_id,
+                                "successfully mined and accepted new block",
+                            );
+                            any_success = true;
+                        }
+                        SubmitBlockResponse::ErrorResponse(error) => {
+                            warn!(
+                                ?height,
+                                hash = ?block.hash(),
+                                ?solver_id,
+                                ?error,
+                                ?block,
+                                "mined block was rejected",
+                            );
+                        }
+                    }
                 }
-                Err(error) => info!(
+                Err(error) => warn!(
                     ?height,
                     hash = ?block.hash(),
                     ?solver_id,
                     ?error,
-                    "validating a newly mined block failed, trying again",
+                    "submitting mined block failed with RPC error",
                 ),
             }
         }

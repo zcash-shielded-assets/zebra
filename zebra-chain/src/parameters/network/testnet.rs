@@ -7,9 +7,10 @@ use crate::{
     block::{self, Height, HeightDiff},
     parameters::{
         checkpoint::list::{CheckpointList, TESTNET_CHECKPOINT_LIST},
-        constants::{magics, SLOW_START_INTERVAL, SLOW_START_SHIFT},
-        network::error::ParametersBuilderError,
+        Network, NetworkKind, NetworkUpgrade,
+        constants::{SLOW_START_INTERVAL, SLOW_START_SHIFT, magics},
         network_upgrade::TESTNET_ACTIVATION_HEIGHTS,
+        network::error::ParametersBuilderError,
         subsidy::{
             constants::mainnet,
             constants::testnet,
@@ -20,7 +21,6 @@ use crate::{
             funding_stream_address_period, FundingStreamReceiver, FundingStreamRecipient,
             FundingStreams,
         },
-        Network, NetworkKind, NetworkUpgrade,
     },
     transparent,
     work::difficulty::{ExpandedDifficulty, U256},
@@ -469,6 +469,10 @@ pub struct ParametersBuilder {
     /// Whether to allow transactions with transparent outputs to spend coinbase outputs,
     /// similar to `fCoinbaseMustBeShielded` in zcashd.
     should_allow_unshielded_coinbase_spends: bool,
+    /// A flag that makes the node able to operate when no peers are available,
+    /// even if the synchronizer hasn't reached the chain tip. Enables mining
+    /// without needing to connect to other nodes.
+    no_peers_required: bool,
     /// The pre-Blossom halving interval for this network
     pre_blossom_halving_interval: HeightDiff,
     /// The post-Blossom halving interval for this network
@@ -503,6 +507,7 @@ impl Default for ParametersBuilder {
                 .to_expanded()
                 .expect("difficulty limits are valid expanded values"),
             disable_pow: false,
+	    no_peers_required: false,
             funding_streams: testnet::FUNDING_STREAMS.clone(),
             should_lock_funding_stream_address_period: false,
             pre_blossom_halving_interval: PRE_BLOSSOM_HALVING_INTERVAL,
@@ -742,6 +747,12 @@ impl ParametersBuilder {
         self
     }
 
+    /// Sets the `no_peers_required` flag to be used in the [`Parameters`] being built.
+    pub fn with_no_peers_required(mut self, no_peers: bool) -> Self {
+        self.no_peers_required = no_peers;
+        self
+    }
+
     /// Sets the pre and post Blosssom halving intervals to be used in the [`Parameters`] being built.
     pub fn with_halving_interval(
         mut self,
@@ -823,6 +834,7 @@ impl ParametersBuilder {
             target_difficulty_limit,
             disable_pow,
             should_allow_unshielded_coinbase_spends,
+	    no_peers_required,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
             lockbox_disbursements,
@@ -839,6 +851,7 @@ impl ParametersBuilder {
             target_difficulty_limit,
             disable_pow,
             should_allow_unshielded_coinbase_spends,
+	    no_peers_required,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
             lockbox_disbursements,
@@ -885,6 +898,7 @@ impl ParametersBuilder {
             target_difficulty_limit,
             disable_pow,
             should_allow_unshielded_coinbase_spends,
+	        no_peers_required: _,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
             lockbox_disbursements,
@@ -954,6 +968,9 @@ pub struct Parameters {
     /// Whether to allow transactions with transparent outputs to spend coinbase outputs,
     /// similar to `fCoinbaseMustBeShielded` in zcashd.
     should_allow_unshielded_coinbase_spends: bool,
+    /// A flag that makes the node able to operate when no peers are available,
+    /// even if the synchronizer hasn't reached the chain tip.
+    no_peers_required: bool,
     /// Pre-Blossom halving interval for this network
     pre_blossom_halving_interval: HeightDiff,
     /// Post-Blossom halving interval for this network
@@ -980,8 +997,6 @@ impl Parameters {
         ParametersBuilder::default()
     }
 
-    /// Accepts a [`ConfiguredActivationHeights`].
-    ///
     /// Creates an instance of [`Parameters`] with `Regtest` values.
     pub fn new_regtest(
         RegtestParameters {
@@ -1041,6 +1056,7 @@ impl Parameters {
             funding_streams: _,
             target_difficulty_limit,
             disable_pow,
+            no_peers_required: _,
             should_allow_unshielded_coinbase_spends,
             pre_blossom_halving_interval,
             post_blossom_halving_interval,
@@ -1111,6 +1127,11 @@ impl Parameters {
         self.should_allow_unshielded_coinbase_spends
     }
 
+    /// Returns true if this network should operate without requiring peer connections.
+    pub fn no_peers_required(&self) -> bool {
+        self.no_peers_required
+    }
+
     /// Returns the pre-Blossom halving interval for this network
     pub fn pre_blossom_halving_interval(&self) -> HeightDiff {
         self.pre_blossom_halving_interval
@@ -1163,6 +1184,15 @@ impl Network {
     pub fn disable_pow(&self) -> bool {
         if let Self::Testnet(params) = self {
             params.disable_pow()
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if this network should operate without requiring peer connections.
+    pub fn no_peers_required(&self) -> bool {
+        if let Self::Testnet(params) = self {
+            params.no_peers_required()
         } else {
             false
         }

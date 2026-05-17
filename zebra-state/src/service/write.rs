@@ -387,10 +387,16 @@ impl WriteBlockWorkerTask {
             // At this point, we know that all the block's descendants
             // are invalid, because we checked all the consensus rules before
             // committing the failing ancestor block to the non-finalized state.
+        let child_height = queued_child.height;
             let result = if let Some(parent_error) = parent_error {
                 Err(parent_error.clone())
             } else {
-                tracing::trace!(?child_hash, "validating queued child");
+            tracing::debug!(
+                ?child_hash,
+                ?parent_hash,
+                block_height = ?child_height,
+                "starting validation for queued child block"
+            );
                 validate_and_commit_non_finalized(
                     &finalized_state.db,
                     non_finalized_state,
@@ -403,6 +409,15 @@ impl WriteBlockWorkerTask {
             //       and send the result on rsp_tx here
 
             if let Err(ref error) = result {
+            tracing::warn!(
+                ?child_hash,
+                ?parent_hash,
+                block_height = ?child_height,
+                error = ?error,
+                error_display = %error,
+                "block validation and commit failed"
+            );
+
                 // If the block is invalid, mark any descendant blocks as rejected.
                 parent_error_map.insert(child_hash, error.clone());
 
@@ -418,6 +433,13 @@ impl WriteBlockWorkerTask {
                 // Skip the things we only need to do for successfully committed blocks
                 continue;
             }
+
+        tracing::info!(
+            ?child_hash,
+            ?parent_hash,
+            block_height = ?child_height,
+            "block validation and commit succeeded"
+        );
 
             // Committing blocks to the finalized state keeps the same chain,
             // so we can update the chain seen by the rest of the application now.

@@ -235,6 +235,11 @@ pub(crate) fn write_coinbase_height<W: io::Write>(
 impl Height {
     /// Get the size of `Height` when serialized into a coinbase input script.
     pub fn coinbase_zcash_serialized_size(&self) -> usize {
+        // Height 0 (genesis) does not encode a coinbase height in the script.
+        if self == &Height(0) {
+            return 0;
+        }
+
         let mut writer = FakeWriter(0);
         let empty_data = CoinbaseData(Vec::new());
 

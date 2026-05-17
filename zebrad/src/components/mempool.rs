@@ -352,12 +352,26 @@ impl Mempool {
         let is_close_to_tip = self.sync_status.is_close_to_tip() || self.is_enabled_by_debug();
 
         match (is_close_to_tip, self.is_enabled(), tip_action) {
-            // the active state is up to date, or there is no tip action to activate the mempool
-            (false, false, _) | (true, true, _) | (true, false, None) => return false,
+            // the active state is up to date
+            (false, false, _) | (true, true, _) => return false,
 
-            // Enable state - there should be a chain tip when Zebra is close to the network tip
-            (true, false, Some(tip_action)) => {
-                let (last_seen_tip_hash, tip_height) = tip_action.best_tip_hash_and_height();
+            // The mempool is disabled but should be enabled.
+            // If there's no tip_action, use the best tip from latest_chain_tip.
+            (true, false, tip_action_or_none) => {
+                let (last_seen_tip_hash, tip_height) = match tip_action_or_none {
+                    Some(tip_action) => tip_action.best_tip_hash_and_height(),
+                    None => {
+                        let height = self
+                            .latest_chain_tip
+                            .best_tip_height()
+                            .expect("chain tip should exist when mempool is enabled");
+                        let hash = self
+                            .latest_chain_tip
+                            .best_tip_hash()
+                            .expect("chain tip should exist when mempool is enabled");
+                        (hash, height)
+                    }
+                };
 
                 info!(?tip_height, "activating mempool: Zebra is close to the tip");
 

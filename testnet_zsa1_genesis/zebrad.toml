@@ -1,0 +1,39 @@
+[network.testnet_parameters]
+slow_start_interval = 0
+network_magic = [0x5A, 0x53, 0x41, 0x31]
+network_name = "ZSA_Testnet_1"
+genesis_hash = "077dbb6530d0228c558d4acb8146df937b4c94d89d7c5772c62d891a82c1956b"
+no_peers_required = true
+
+[network.testnet_parameters.activation_heights]
+"NU6.1" = 1
+
+[consensus]
+checkpoint_sync = false
+
+[network]
+cache_dir = true
+listen_addr = "[::]:18243"
+network = "Testnet"
+#initial_testnet_peers = ["192.168.18.43:18233"]
+#initial_testnet_peers = ["103.204.117.164:18233"]
+initial_testnet_peers = []
+
+[rpc]
+listen_addr = "127.0.0.1:18232"
+
+[state]
+cache_dir = "./testnet_zsa_1"
+ephemeral = false
+
+[mining]
+internal_miner = true
+miner_address = "tmKAYVvzNW6PQ52gpeRSfNi75CfHZJhqcYB"
+
+[mempool]
+debug_enable_at_height = 0
+
+[[network.testnet_parameters.lockbox_disbursements]]
+# dummy address
+address = "t27eWDgjFYJGVXmzrXeVjnb5J3uXDM9xH9v"
+amount = 0

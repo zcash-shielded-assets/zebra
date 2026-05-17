@@ -30,7 +30,7 @@ tx_v6 = ["zebra-chain/tx_v6", "zebra-state/tx_v6", "zebra-consensus/tx_v6"]
 # dependencies
 
 # Experimental internal miner support
-internal-miner = []
+internal-miner = ["zebra-chain/internal-miner"]
 
 # Test-only features
 proptest-impl = [

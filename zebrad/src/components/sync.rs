@@ -22,6 +22,8 @@ use zebra_chain::{
     block::{self, Height, HeightDiff},
     chain_tip::ChainTip,
 };
+
+use zebra_chain::block::genesis::known_genesis_block;
 use zebra_network::{self as zn, PeerSocketAddr};
 use zebra_state as zs;
 
@@ -1015,6 +1017,26 @@ where
         //  - the genesis hash is used as a placeholder for "no matches".
         //
         // So we just download and verify the genesis block here.
+        //
+        // For known hardcoded genesis blocks (like ZSA1), commit them directly
+        // instead of trying to download from peers.
+        if let Some(genesis_block) = known_genesis_block(self.genesis_hash) {
+            let finalized = zs::CheckpointVerifiedBlock::with_hash(
+                genesis_block,
+                self.genesis_hash,
+            );
+
+            self.state
+                .ready()
+                .await
+                .map_err(|e| eyre!(e))?
+                .call(zs::Request::CommitCheckpointVerifiedBlock(finalized))
+                .await
+                .map_err(|e| eyre!(e))?;
+
+            return Ok(());
+        }
+
         while !self.state_contains(self.genesis_hash).await? {
             info!("starting genesis block download and verify");
 

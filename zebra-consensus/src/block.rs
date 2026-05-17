@@ -175,6 +175,13 @@ where
 
         async move {
             let hash = block.hash();
+
+            tracing::info!(
+                hash = ?hash,
+                height = ?block.coinbase_height(),
+                "starting semantic block verification"
+            );
+
             // Check that this block is actually a new block.
             tracing::trace!("checking that block is not already in state");
             match state_service
@@ -186,11 +193,21 @@ where
                 .map_err(|source| VerifyBlockError::Depth { source, hash })?
             {
                 zs::Response::KnownBlock(Some(location)) => {
+                    tracing::warn!(
+                        hash = ?hash,
+                        ?location,
+                        "block already in chain, rejecting"
+                    );
                     return Err(BlockError::AlreadyInChain(hash, location).into())
                 }
                 zs::Response::KnownBlock(None) => {}
                 _ => unreachable!("wrong response to Request::KnownBlock"),
             }
+
+            tracing::info!(
+                hash = ?hash,
+                "block not already in state, proceeding with checks"
+            );
 
             tracing::trace!("performing block checks");
             let height = block
@@ -208,11 +225,14 @@ where
             // <https://en.bitcoin.it/wiki/BIP_0023#Block_Proposal>
             if request.is_proposal() || network.disable_pow() {
                 check::difficulty_threshold_is_valid(&block.header, &network, &height, &hash)?;
+                tracing::debug!(?hash, ?height, "proposal difficulty threshold check passed");
             } else {
                 // Do the difficulty checks first, to raise the threshold for
                 // attacks that use any other fields.
                 check::difficulty_is_valid(&block.header, &network, &height, &hash)?;
+                tracing::debug!(?hash, ?height, "difficulty check passed");
                 check::equihash_solution_is_valid(&block.header)?;
+                tracing::debug!(?hash, ?height, "equihash solution check passed");
             }
 
             // Next, check the Merkle root validity, to ensure that

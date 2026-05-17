@@ -60,6 +60,15 @@ where
 {
     let finalized_tip_height = finalized_tip_height
         .expect("finalized state must contain at least one block to do contextual validation");
+
+    tracing::debug!(
+        block_height = ?semantically_verified.height,
+        block_hash = ?semantically_verified.hash,
+        ?finalized_tip_height,
+        parent_hash = ?semantically_verified.block.header.previous_block_hash,
+        "starting contextual validation for block"
+    );
+
     check::block_is_not_orphaned(finalized_tip_height, semantically_verified.height)?;
 
     let relevant_chain: Vec<_> = relevant_chain
@@ -71,6 +80,8 @@ where
         warn!(
             ?semantically_verified,
             ?finalized_tip_height,
+            parent_hash = ?semantically_verified.block.header.previous_block_hash,
+            relevant_chain_len = relevant_chain.len(),
             "state must contain parent block to do contextual validation"
         );
 
@@ -81,6 +92,15 @@ where
     let parent_height = parent_block
         .coinbase_height()
         .expect("valid blocks have a coinbase height");
+
+    tracing::debug!(
+        parent_height = ?parent_height,
+        child_height = ?semantically_verified.height,
+        parent_hash = ?semantically_verified.block.header.previous_block_hash,
+        child_hash = ?semantically_verified.hash,
+        "found parent block, checking height relationship"
+    );
+
     check::height_one_more_than_parent_height(parent_height, semantically_verified.height)?;
 
     // skip this check during tests if we don't have enough blocks in the chain
@@ -123,10 +143,24 @@ where
     });
     let difficulty_adjustment =
         AdjustedDifficulty::new_from_block(&semantically_verified.block, network, relevant_data);
+
+    tracing::debug!(
+        block_height = ?semantically_verified.height,
+        block_hash = ?semantically_verified.hash,
+        relevant_chain_len = relevant_chain.len(),
+        "checking difficulty threshold and time validity"
+    );
+
     check::difficulty_threshold_and_time_are_valid(
         semantically_verified.block.header.difficulty_threshold,
         difficulty_adjustment,
     )?;
+
+    tracing::debug!(
+        block_height = ?semantically_verified.height,
+        block_hash = ?semantically_verified.hash,
+        "contextual validation passed: block_is_valid_for_recent_chain"
+    );
 
     Ok(())
 }
@@ -287,6 +321,13 @@ fn difficulty_threshold_and_time_are_valid(
         .expect("Zebra always has a genesis height available");
 
     if candidate_time <= median_time_past && candidate_height != genesis_height {
+        tracing::debug!(
+            ?candidate_height,
+            ?candidate_time,
+            ?median_time_past,
+            ?genesis_height,
+            "block time validation failed: time too early"
+        );
         Err(ValidateContextError::TimeTooEarly {
             candidate_time,
             median_time_past,
@@ -301,6 +342,12 @@ fn difficulty_threshold_and_time_are_valid(
     //
     // https://zips.z.cash/protocol/protocol.pdf#blockheader
     if network.is_max_block_time_enforced(candidate_height) && candidate_time > block_time_max {
+        tracing::debug!(
+            ?candidate_height,
+            ?candidate_time,
+            ?block_time_max,
+            "block time validation failed: time too late"
+        );
         Err(ValidateContextError::TimeTooLate {
             candidate_time,
             block_time_max,
@@ -314,11 +361,23 @@ fn difficulty_threshold_and_time_are_valid(
     // https://zips.z.cash/protocol/protocol.pdf#blockheader
     let expected_difficulty = difficulty_adjustment.expected_difficulty_threshold();
     if difficulty_threshold != expected_difficulty {
+        tracing::debug!(
+            ?candidate_height,
+            ?difficulty_threshold,
+            ?expected_difficulty,
+            "block difficulty threshold validation failed"
+        );
         Err(ValidateContextError::InvalidDifficultyThreshold {
             difficulty_threshold,
             expected_difficulty,
         })?
     }
+
+    tracing::debug!(
+        ?candidate_height,
+        ?difficulty_threshold,
+        "block difficulty and time validation passed"
+    );
 
     Ok(())
 }
@@ -398,6 +457,13 @@ pub(crate) fn initial_contextual_validity(
     non_finalized_state: &NonFinalizedState,
     semantically_verified: &SemanticallyVerifiedBlock,
 ) -> Result<(), ValidateContextError> {
+    tracing::debug!(
+        block_height = ?semantically_verified.height,
+        block_hash = ?semantically_verified.hash,
+        parent_hash = ?semantically_verified.block.header.previous_block_hash,
+        "starting initial contextual validity checks"
+    );
+
     let relevant_chain = any_ancestor_blocks(
         non_finalized_state,
         finalized_state,
@@ -413,6 +479,12 @@ pub(crate) fn initial_contextual_validity(
     )?;
 
     check::nullifier::no_duplicates_in_finalized_chain(semantically_verified, finalized_state)?;
+
+    tracing::debug!(
+        block_height = ?semantically_verified.height,
+        block_hash = ?semantically_verified.hash,
+        "initial contextual validity checks passed"
+    );
 
     Ok(())
 }

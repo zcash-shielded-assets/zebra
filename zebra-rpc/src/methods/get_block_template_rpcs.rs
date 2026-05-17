@@ -64,6 +64,7 @@ use crate::methods::{
 };
 
 pub mod constants;
+pub mod create_genesis_data;
 pub mod get_block_template;
 pub mod types;
 pub mod zip317;
@@ -301,6 +302,34 @@ pub trait GetBlockTemplateRpc {
     /// method: post
     /// tags: generating
     fn generate(&self, num_blocks: u32) -> BoxFuture<Result<Vec<GetBlockHash>>>;
+
+    #[rpc(name = "create_genesis_data")]
+    /// Creates a genesis block (including Equihash solution when built with `internal-miner`)
+    /// based on user-provided parameters.
+    ///
+    /// # Parameters
+    ///
+    /// - `params`: (object, required) A JSON object with genesis parameters, see
+    ///   [`create_genesis_data::CreateGenesisParams`] for details.
+    ///
+    /// # Returns
+    ///
+    /// A [`create_genesis_data::CreateGenesisResponse`] containing:
+    /// - `genesis_block_hex`: The complete genesis block as hex.
+    /// - `genesis_hash`: The block hash.
+    /// - `header_preimage_hex`: The 140-byte header preimage for external mining.
+    /// - `equihash_solution_hex`: The Equihash solution (empty if `disable_pow` was true).
+    /// - `nonce_hex`: The nonce used.
+    /// - `config_toml`: A ready-to-use zebrad.toml config section.
+    ///
+    /// # Notes
+    ///
+    /// This rpc method is available only if zebra is built with `--features getblocktemplate-rpcs`.
+    /// Equihash mining is only available if built with `--features internal-miner`.
+    fn create_genesis_data(
+        &self,
+        params: create_genesis_data::CreateGenesisParams,
+    ) -> BoxFuture<Result<create_genesis_data::CreateGenesisResponse>>;
 }
 
 /// RPC method implementations.
@@ -968,11 +997,40 @@ where
                 // Turns BoxError into Result<VerifyChainError, BoxError>,
                 // by downcasting from Any to VerifyChainError.
                 Err(box_error) => {
+                    // Store error message and details before moving box_error
+                    let error_debug = format!("{:?}", box_error);
+                    let error_display = format!("{}", box_error);
+                    let error_source = box_error.source().map(|s| format!("{}", s)).unwrap_or_else(|| "no source".to_string());
+
+                    tracing::warn!(
+                        ?block_hash,
+                        ?block_height,
+                        error_debug,
+                        error_display,
+                        error_source,
+                        "submit block failed verification (raw error)"
+                    );
+
                     let error = box_error
                         .downcast::<RouterError>()
                         .map(|boxed_chain_error| *boxed_chain_error);
 
-                    tracing::info!(?error, ?block_hash, ?block_height, "submit block failed verification");
+                    if let Err(ref chain_err) = error {
+                        tracing::warn!(
+                            ?block_hash,
+                            ?block_height,
+                            error = ?chain_err,
+                            error_display = %chain_err,
+                            "submit block failed verification (downcast success)"
+                        );
+                    } else {
+                        tracing::warn!(
+                            ?error,
+                            ?block_hash,
+                            ?block_height,
+                            "submit block failed verification (downcast to RouterError failed)"
+                        );
+                    }
 
                     error
                 }
@@ -1457,6 +1515,25 @@ where
             }
 
             Ok(block_hashes)
+        }
+        .boxed()
+    }
+
+    fn create_genesis_data(
+        &self,
+        params: create_genesis_data::CreateGenesisParams,
+    ) -> BoxFuture<Result<create_genesis_data::CreateGenesisResponse>> {
+        async move {
+            // This RPC does not require the node to be synced — it creates
+            // a standalone genesis block.
+
+            create_genesis_data::create_genesis_block(
+                &params.network_name,
+                &params.network_magic,
+                &params.activation_heights,
+                params.disable_pow,
+                params.genesis_time,
+            )
         }
         .boxed()
     }
