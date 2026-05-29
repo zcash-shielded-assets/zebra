@@ -1,0 +1,24 @@
+[network]
+network = "Regtest"
+listen_addr = "0.0.0.0:18899"
+
+[rpc]
+listen_addr = "0.0.0.0:18232"
+enable_cookie_auth = false
+
+[network.testnet_parameters.activation_heights]
+NU5 = 1
+NU6 = 1
+NU7 = 1
+
+[[network.testnet_parameters.lockbox_disbursements]]
+# dummy address
+address = "t27eWDgjFYJGVXmzrXeVjnb5J3uXDM9xH9v"
+amount = 0
+
+[mining]
+miner_address = "tmMoXKXz3kaBBs17RYHGsZmzWQvHYnJywVM"
+internal_miner = false
+
+[state]
+ephemeral = true

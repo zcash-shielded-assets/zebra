@@ -152,7 +152,7 @@ impl zp_tx::Authorization for PrecomputedAuth {
     type SaplingAuth = sapling_crypto::bundle::Authorized;
     type OrchardAuth = orchard::bundle::Authorized;
 
-    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+    #[cfg(zcash_unstable = "nu7")]
     type IssueAuth = orchard::issuance::Signed;
 
     #[cfg(zcash_unstable = "zfuture")]
@@ -332,6 +332,10 @@ pub(crate) fn sighash(
             unlock_script = zcash_transparent::address::Script(script::Code(script_code));
             zp_tx::sighash::SignableInput::Transparent(
                 zcash_transparent::sighash::SignableInput::from_parts(
+                    precomputed_tx_data
+                        .tx_data
+                        .transparent_bundle()
+                        .expect("transparent inputs require a transparent bundle"),
                     hash_type.try_into().expect("hash type should be ALL"),
                     input_index,
                     &unlock_script,
@@ -340,7 +344,8 @@ pub(crate) fn sighash(
                         .value
                         .try_into()
                         .expect("amount was previously validated"),
-                ),
+                )
+                .expect("input index must be valid"),
             )
         }
         None => zp_tx::sighash::SignableInput::Shielded,
