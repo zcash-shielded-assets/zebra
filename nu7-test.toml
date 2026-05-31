@@ -17,7 +17,7 @@ address = "t27eWDgjFYJGVXmzrXeVjnb5J3uXDM9xH9v"
 amount = 0
 
 [mining]
-miner_address = "tmMoXKXz3kaBBs17RYHGsZmzWQvHYnJywVM"
+miner_address = "tmGpBfBBYG17NAjxxdeuYzN1a8SndXHhjzC"
 internal_miner = false
 
 [state]
