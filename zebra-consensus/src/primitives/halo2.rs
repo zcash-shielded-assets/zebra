@@ -76,7 +76,6 @@ impl RequestWeight for Item {
     fn request_weight(&self) -> usize {
         match &self.bundle {
             OrchardBundle::OrchardVanilla(b) => b.actions().len(),
-            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
             OrchardBundle::OrchardZSA(b) => b.actions().len(),
         }
     }
@@ -107,7 +106,6 @@ impl QueueBatchVerify for BatchValidator {
     fn queue(&mut self, Item { bundle, sighash }: Item) {
         match bundle {
             OrchardBundle::OrchardVanilla(b) => self.add_bundle(&b, sighash.0),
-            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
             OrchardBundle::OrchardZSA(b) => self.add_bundle(&b, sighash.0),
         }
     }
