@@ -31,10 +31,10 @@ use zebra_chain::{
     sprout,
     transaction::{
         arbitrary::{
-            insert_fake_orchard_shielded_data, test_transactions, transactions_from_blocks,
+            insert_fake_v5_orchard_shielded_data, test_transactions, transactions_from_blocks,
             v5_transactions,
         },
-        zip317, Hash, HashType, JoinSplitData, LockTime, Transaction,
+        zip317, Hash, HashType, JoinSplitData, LockTime, SigHash, Transaction,
     },
     transparent::{self, CoinbaseSpendRestriction},
 };
@@ -1217,7 +1217,7 @@ fn v5_coinbase_transaction_without_enable_spends_flag_passes_validation() {
             .find(|transaction| transaction.is_coinbase())
             .expect("V5 coinbase tx");
 
-        let shielded_data = insert_fake_orchard_shielded_data(&mut tx);
+        let shielded_data = insert_fake_v5_orchard_shielded_data(&mut tx);
 
         assert!(!shielded_data.flags.contains(Flags::ENABLE_SPENDS));
 
@@ -1232,7 +1232,7 @@ fn v5_coinbase_transaction_with_enable_spends_flag_fails_validation() {
             .find(|transaction| transaction.is_coinbase())
             .expect("V5 coinbase tx");
 
-        let shielded_data = insert_fake_orchard_shielded_data(&mut tx);
+        let shielded_data = insert_fake_v5_orchard_shielded_data(&mut tx);
 
         assert!(!shielded_data.flags.contains(Flags::ENABLE_SPENDS));
 
@@ -2593,10 +2593,9 @@ fn v4_with_sapling_spends() {
             .rev()
             .filter(|(_, transaction)| {
                 !transaction.is_coinbase() && transaction.inputs().is_empty()
-                    && transaction.version() == 4
             })
             .find(|(_, transaction)| transaction.sapling_spends_per_anchor().next().is_some())
-            .expect("No V4 transaction found with Sapling spends");
+            .expect("No transaction found with Sapling spends");
 
         let expected_hash = transaction.unmined_id();
 
@@ -2638,10 +2637,9 @@ fn v4_with_duplicate_sapling_spends() {
             .rev()
             .filter(|(_, transaction)| {
                 !transaction.is_coinbase() && transaction.inputs().is_empty()
-                    && transaction.version() == 4
             })
             .find(|(_, transaction)| transaction.sapling_spends_per_anchor().next().is_some())
-            .expect("No V4 transaction found with Sapling spends");
+            .expect("No transaction found with Sapling spends");
 
         // Duplicate one of the spends
         let duplicate_nullifier = duplicate_sapling_spend(
@@ -2728,10 +2726,7 @@ async fn v5_with_sapling_spends() {
 
         let tx = v5_transactions(net.block_iter())
             .filter(|tx| {
-                !tx.is_coinbase()
-                    && tx.inputs().is_empty()
-                    && tx.expiry_height() >= nu5_activation
-                    && tx.orchard_shielded_data().is_none()
+                !tx.is_coinbase() && tx.inputs().is_empty() && tx.expiry_height() >= nu5_activation
             })
             .find(|tx| tx.sapling_spends_per_anchor().next().is_some())
             .expect("V5 tx with Sapling spends");
@@ -3774,9 +3769,9 @@ fn coinbase_outputs_are_decryptable() -> Result<(), Report> {
 /// Given an Orchard action as a base, fill fields related to note encryption
 /// from the given test vector and returned the modified action.
 fn fill_action_with_note_encryption_test_vector(
-    action: &Action,
+    action: &Action<zebra_chain::orchard::OrchardVanilla>,
     v: &zebra_test::vectors::TestVector,
-) -> Action {
+) -> Action<zebra_chain::orchard::OrchardVanilla> {
     let mut action = action.clone();
     action.cv = v.cv_net.try_into().expect("test vector must be valid");
     action.cm_x = pallas::Base::from_repr(v.cmx).unwrap();
@@ -3799,7 +3794,7 @@ fn coinbase_outputs_are_decryptable_for_fake_v5_blocks() {
                 .find(|tx| tx.is_coinbase())
                 .expect("coinbase V5 tx");
 
-            let shielded_data = insert_fake_orchard_shielded_data(&mut transaction);
+            let shielded_data = insert_fake_v5_orchard_shielded_data(&mut transaction);
             shielded_data.flags = Flags::ENABLE_OUTPUTS;
 
             let action = fill_action_with_note_encryption_test_vector(
@@ -3832,7 +3827,7 @@ fn shielded_outputs_are_not_decryptable_for_fake_v5_blocks() {
                 .find(|tx| tx.is_coinbase())
                 .expect("V5 coinbase tx");
 
-            let shielded_data = insert_fake_orchard_shielded_data(&mut tx);
+            let shielded_data = insert_fake_v5_orchard_shielded_data(&mut tx);
             shielded_data.flags = Flags::ENABLE_OUTPUTS;
 
             let action = fill_action_with_note_encryption_test_vector(
@@ -4038,7 +4033,7 @@ async fn block_with_garbage_orchard_proofs_is_rejected() {
         sapling_shielded_data: None,
         orchard_shielded_data: None,
     };
-    insert_fake_orchard_shielded_data(&mut tx);
+    insert_fake_v5_orchard_shielded_data(&mut tx);
 
     let tx_hash = tx.hash();
     let input_outpoint = match tx.inputs()[0] {
@@ -4069,6 +4064,7 @@ async fn block_with_garbage_orchard_proofs_is_rejected() {
         0,
         0,
         Arc::new(vec![spent_output]),
+        SigHash([0; 32]),
     )
     .unwrap();
 
