@@ -2372,7 +2372,7 @@ where
                 // when the tip changes.
                 let precompute_coinbase = |network, height, params| {
                     tokio::task::spawn_blocking(move || {
-                        TransactionTemplate::new_coinbase(&network, height, &params, Amount::zero())
+                        TransactionTemplate::new_coinbase(&network, height, &params, Amount::zero(), #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))] None)
                             .expect("valid coinbase tx")
                     })
                 };
@@ -2465,6 +2465,8 @@ where
                         server_long_poll_id,
                         vec![],
                         submit_old,
+                        #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+                        None,
                     )
                     .into())
                 }

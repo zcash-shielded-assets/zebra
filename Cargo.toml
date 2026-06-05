@@ -380,7 +380,7 @@ result_large_err = "allow"
 
 [patch.crates-io]
 # ZSA forks
-orchard = { path = "../orchard" }
+orchard = { git = "https://github.com/zcash-shielded-assets/orchard.git", rev = "ed66d7e71d80edf5b4f62802729ee4da16bebd0e" }
 sapling-crypto = { path = "../sapling-crypto-qedit" }
 zcash_note_encryption = { path = "../zcash_note_encryption" }
 halo2_gadgets = { path = "../halo2/halo2_gadgets" }

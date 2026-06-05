@@ -27,10 +27,8 @@ use zcash_script::{
     opcode::{Evaluable, PushValue},
     pv::push_value,
 };
-#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
-use zebra_chain::amount::{Amount, NonNegative};
+use zebra_chain::amount::{self, Amount, NonNegative};
 use zebra_chain::{
-    amount::{self, Amount, NonNegative},
     block::{
         self, Block, ChainHistoryBlockTxAuthCommitmentHash, MAX_BLOCK_BYTES, ZCASH_BLOCK_VERSION,
     },

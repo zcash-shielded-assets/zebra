@@ -1085,7 +1085,7 @@ where
     // (ZIP-226 / ZIP-227). Those rules are enforced only in `zebra-state` via
     // `IssuedAssetChanges::validate_and_get_changes`. Either move that validation here
     // or document the contract that the state layer cannot be bypassed.
-    #[cfg(zcash_unstable = "nu7")]
+    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
     fn verify_v6_transaction(
         request: &Request,
         network: &Network,
@@ -1116,7 +1116,7 @@ where
     }
 
     /// Verifies if a V6 `transaction` is supported by `network_upgrade`.
-    #[cfg(zcash_unstable = "nu7")]
+    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
     fn verify_v6_transaction_network_upgrade(
         transaction: &Transaction,
         network_upgrade: NetworkUpgrade,
