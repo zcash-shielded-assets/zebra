@@ -9,6 +9,12 @@ rustdocflags = [
     "-Arustdoc::private_intra_doc_links",
 ]
 
+[target.'cfg(all())']
+rustflags = [
+    "--cfg",
+    "zcash_unstable=\"nu7\"",
+]
+
 [env]
 RUST_BACKTRACE="1"
 
