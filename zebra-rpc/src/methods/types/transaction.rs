@@ -173,6 +173,7 @@ impl TransactionTemplate<NegativeOrZero> {
                     Some(::orchard::keys::OutgoingViewingKey::from([0u8; 32])),
                     *addr,
                     miner_reward,
+                    ::orchard::note::AssetBase::zatoshi(),
                     memo.clone(),
                 ),
                 "Orchard"
@@ -249,6 +250,7 @@ impl TransactionTemplate<NegativeOrZero> {
             &sapling_prover,
             &sapling_prover,
             &FeeRule::non_standard(Zatoshis::ZERO),
+            |_| false,
         )?;
 
         let tx = build_result.transaction();
@@ -1006,7 +1008,7 @@ impl TransactionObject {
                         let rk: [u8; 32] = action.rk.into();
                         let cm_x: [u8; 32] = action.cm_x.into();
                         let ephemeral_key: [u8; 32] = action.ephemeral_key.into();
-                        let enc_ciphertext: [u8; 580] = action.enc_ciphertext.into();
+                        let enc_ciphertext: [u8; 580] = action.enc_ciphertext.clone().into();
                         let out_ciphertext: [u8; 80] = action.out_ciphertext.into();
 
                         OrchardAction {
