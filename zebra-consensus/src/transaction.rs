@@ -523,7 +523,7 @@ where
                     script_verifier,
                     cached_ffi_transaction.clone(),
                 )?,
-                #[cfg(zcash_unstable = "nu7")]
+                #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
                 Transaction::V6 {
                     ..
                 } => Self::verify_v6_transaction(
@@ -562,7 +562,7 @@ where
             let value_balance = tx.value_balance(&spent_utxos);
 
             let zip233_amount = match *tx {
-            	#[cfg(zcash_unstable = "nu7")]
+            	#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
                 Transaction::V6{ .. } => tx.zip233_amount(),
                 _ => Amount::zero()
             };
@@ -1212,7 +1212,7 @@ where
                 // checks that (at a minimum) must pass for the
                 // transaction to verify.
                 checks.push(primitives::groth16::JOINSPLIT_VERIFIER.oneshot(
-                    DescriptionWrapper(&(joinsplit, &joinsplit_data.pub_key)).try_into()?,
+                    primitives::groth16::Item::from_joinsplit(joinsplit, &joinsplit_data.pub_key)?,
                 ));
             }
 
