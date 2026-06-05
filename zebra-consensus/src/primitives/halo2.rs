@@ -15,7 +15,7 @@ use rand::thread_rng;
 use zcash_primitives::transaction::OrchardBundle;
 use zebra_chain::transaction::SigHash;
 
-#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+#[cfg(zcash_unstable = "nu7")]
 use orchard::flavor::OrchardZSA;
 
 use crate::BoxError;
@@ -58,7 +58,7 @@ lazy_static::lazy_static! {
         ItemVerifyingKey::build::<OrchardVanilla>();
 }
 
-#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+#[cfg(zcash_unstable = "nu7")]
 lazy_static::lazy_static! {
     /// The halo2 proof verifying key for OrchardZSA.
     pub static ref VERIFYING_KEY_ZSA: ItemVerifyingKey =
@@ -174,7 +174,7 @@ pub static VERIFIER_VANILLA: Lazy<
 });
 
 /// Like [`VERIFIER_VANILLA`], but for OrchardZSA proofs.
-#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+#[cfg(zcash_unstable = "nu7")]
 pub static VERIFIER_ZSA: Lazy<
     Fallback<
         Batch<Verifier, Item>,

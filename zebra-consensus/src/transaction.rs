@@ -523,7 +523,7 @@ where
                     script_verifier,
                     cached_ffi_transaction.clone(),
                 )?,
-                #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+                #[cfg(zcash_unstable = "nu7")]
                 Transaction::V6 {
                     ..
                 } => Self::verify_v6_transaction(
@@ -562,7 +562,7 @@ where
             let value_balance = tx.value_balance(&spent_utxos);
 
             let zip233_amount = match *tx {
-            	#[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+            	#[cfg(zcash_unstable = "nu7")]
                 Transaction::V6{ .. } => tx.zip233_amount(),
                 _ => Amount::zero()
             };
@@ -604,7 +604,7 @@ where
                         miner_fee.expect("fee should have been checked earlier"),
                         sigops,
                         0,
-                        spent_outputs,
+                        Arc::new(spent_outputs),
                         tx_sighash,
                     )?;
 
@@ -1085,7 +1085,7 @@ where
     // (ZIP-226 / ZIP-227). Those rules are enforced only in `zebra-state` via
     // `IssuedAssetChanges::validate_and_get_changes`. Either move that validation here
     // or document the contract that the state layer cannot be bypassed.
-    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+    #[cfg(zcash_unstable = "nu7")]
     fn verify_v6_transaction(
         request: &Request,
         network: &Network,
@@ -1116,7 +1116,7 @@ where
     }
 
     /// Verifies if a V6 `transaction` is supported by `network_upgrade`.
-    #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+    #[cfg(zcash_unstable = "nu7")]
     fn verify_v6_transaction_network_upgrade(
         transaction: &Transaction,
         network_upgrade: NetworkUpgrade,
@@ -1348,7 +1348,7 @@ where
                     .clone()
                     .oneshot(item)
                     .boxed(),
-                #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+                #[cfg(zcash_unstable = "nu7")]
                 OrchardBundle::OrchardZSA(_) => primitives::halo2::VERIFIER_ZSA
                     .clone()
                     .oneshot(item)
