@@ -278,7 +278,7 @@ impl PrecomputedTxData {
         let tx_data: zp_tx::TransactionData<PrecomputedAuth> = tx.into_data().map_authorization(
             f_transparent,
             IdentityMap,
-            IdentityMap,
+            (),
             IdentityMap,
             #[cfg(zcash_unstable = "zfuture")]
             (),
