@@ -33,7 +33,7 @@ use zebra_chain::{
         },
         zip317, Hash, HashType, JoinSplitData, LockTime, Transaction,
     },
-    transparent::{self, CoinbaseData, CoinbaseSpendRestriction},
+    transparent::{self, CoinbaseSpendRestriction},
 };
 
 #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
