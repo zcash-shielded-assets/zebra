@@ -2593,9 +2593,10 @@ fn v4_with_sapling_spends() {
             .rev()
             .filter(|(_, transaction)| {
                 !transaction.is_coinbase() && transaction.inputs().is_empty()
+                    && transaction.version() == 4
             })
             .find(|(_, transaction)| transaction.sapling_spends_per_anchor().next().is_some())
-            .expect("No transaction found with Sapling spends");
+            .expect("No V4 transaction found with Sapling spends");
 
         let expected_hash = transaction.unmined_id();
 
@@ -2637,9 +2638,10 @@ fn v4_with_duplicate_sapling_spends() {
             .rev()
             .filter(|(_, transaction)| {
                 !transaction.is_coinbase() && transaction.inputs().is_empty()
+                    && transaction.version() == 4
             })
             .find(|(_, transaction)| transaction.sapling_spends_per_anchor().next().is_some())
-            .expect("No transaction found with Sapling spends");
+            .expect("No V4 transaction found with Sapling spends");
 
         // Duplicate one of the spends
         let duplicate_nullifier = duplicate_sapling_spend(
@@ -2724,12 +2726,18 @@ async fn v5_with_sapling_spends() {
     for net in Network::iter() {
         let nu5_activation = NetworkUpgrade::Nu5.activation_height(&net);
 
-        let tx = v5_transactions(net.block_iter())
+        let tx = match v5_transactions(net.block_iter())
             .filter(|tx| {
-                !tx.is_coinbase() && tx.inputs().is_empty() && tx.expiry_height() >= nu5_activation
+                !tx.is_coinbase()
+                    && tx.inputs().is_empty()
+                    && tx.expiry_height() >= nu5_activation
+                    && tx.orchard_shielded_data().is_none()
             })
             .find(|tx| tx.sapling_spends_per_anchor().next().is_some())
-            .expect("V5 tx with Sapling spends");
+        {
+            Some(tx) => tx,
+            None => continue,
+        };
 
         let expected_hash = tx.unmined_id();
         let height = tx.expiry_height().expect("expiry height");
