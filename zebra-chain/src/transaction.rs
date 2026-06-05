@@ -1203,6 +1203,27 @@ impl Transaction {
         }
     }
 
+    /// Access the Orchard shielded data in this transaction, if there is any,
+    /// regardless of version.
+    pub fn orchard_shielded_data(&self) -> Option<&orchard::ShieldedData<orchard::OrchardVanilla>> {
+        match self {
+            Transaction::V5 {
+                orchard_shielded_data,
+                ..
+            } => orchard_shielded_data.as_ref(),
+            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+            Transaction::V6 { .. } => None,
+            _ => None,
+        }
+    }
+
+    /// Iterate over the Orchard actions in this transaction.
+    pub fn orchard_actions(&self) -> impl Iterator<Item = &orchard::Action<orchard::OrchardVanilla>> {
+        self.orchard_shielded_data()
+            .into_iter()
+            .flat_map(orchard::ShieldedData::actions)
+    }
+
     /// Access the Orchard flags in this transaction, if there is any,
     /// regardless of version.
     pub fn orchard_flags(&self) -> Option<orchard::shielded_data::Flags> {
