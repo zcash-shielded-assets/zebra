@@ -1224,6 +1224,21 @@ impl Transaction {
             .flat_map(orchard::ShieldedData::actions)
     }
 
+    /// Access the mutable Orchard shielded data in this transaction, if there is any.
+    pub fn orchard_shielded_data_mut(
+        &mut self,
+    ) -> Option<&mut orchard::ShieldedData<orchard::OrchardVanilla>> {
+        match self {
+            Transaction::V5 {
+                orchard_shielded_data: Some(orchard_shielded_data),
+                ..
+            } => Some(orchard_shielded_data),
+            #[cfg(all(zcash_unstable = "nu7", feature = "tx_v6"))]
+            Transaction::V6 { .. } => None,
+            _ => None,
+        }
+    }
+
     /// Access the Orchard flags in this transaction, if there is any,
     /// regardless of version.
     pub fn orchard_flags(&self) -> Option<orchard::shielded_data::Flags> {
