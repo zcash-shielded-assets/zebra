@@ -3151,7 +3151,7 @@ fn mock_coinbase_transparent_output(
 
     let input = transparent::Input::Coinbase {
         height: coinbase_height,
-        data: CoinbaseData::new(Vec::new()),
+        data: Vec::new(),
         sequence: u32::MAX,
     };
 
