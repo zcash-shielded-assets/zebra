@@ -397,3 +397,5 @@ zcash_keys = { path = "../librustzcash/zcash_keys" }
 zcash_history = { path = "../librustzcash/zcash_history" }
 zcash_transparent = { path = "../librustzcash/zcash_transparent" }
 equihash = { path = "../librustzcash/components/equihash" }
+sinsemilla = { path = "../sinsemilla-local" }
+zcash_spec = { path = "../zcash_spec-qedit" }
