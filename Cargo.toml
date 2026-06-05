@@ -30,7 +30,7 @@ edition = "2021"
 
 [workspace.dependencies]
 incrementalmerkletree = { version = "0.8.2", features = ["legacy-api"] }
-orchard = "0.14"
+orchard = { version = "0.14", features = ["zsa-issuance", "temporary-zebra"] }
 sapling-crypto = "0.7"
 zcash_address = "0.12"
 zcash_encoding = "0.4"
@@ -377,3 +377,23 @@ unwrap_in_result = "warn"
 
 # TODOs: fix this lint eventually
 result_large_err = "allow"
+
+[patch.crates-io]
+# ZSA forks
+orchard = { path = "../orchard" }
+sapling-crypto = { path = "../sapling-crypto-qedit" }
+zcash_note_encryption = { path = "../zcash_note_encryption" }
+halo2_gadgets = { path = "../halo2/halo2_gadgets" }
+halo2_proofs = { path = "../halo2/halo2_proofs" }
+halo2_poseidon = { path = "../halo2/halo2_poseidon" }
+
+# librustzcash sub-crates from zsa2
+zcash_primitives = { path = "../librustzcash/zcash_primitives" }
+zcash_proofs = { path = "../librustzcash/zcash_proofs" }
+zcash_protocol = { path = "../librustzcash/components/zcash_protocol" }
+zcash_address = { path = "../librustzcash/components/zcash_address" }
+zcash_encoding = { path = "../librustzcash/components/zcash_encoding" }
+zcash_keys = { path = "../librustzcash/zcash_keys" }
+zcash_history = { path = "../librustzcash/zcash_history" }
+zcash_transparent = { path = "../librustzcash/zcash_transparent" }
+equihash = { path = "../librustzcash/components/equihash" }
