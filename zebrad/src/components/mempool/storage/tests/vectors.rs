@@ -11,6 +11,7 @@ use zebra_chain::{
     amount::{Amount, NonNegative},
     block::{Block, Height},
     parameters::Network,
+    transaction::SigHash,
 };
 
 use zebra_chain::transparent;
@@ -279,6 +280,7 @@ fn mempool_expired_basic_for_network(network: Network) -> Result<()> {
             0,
             0,
             std::sync::Arc::new(vec![]),
+            SigHash([0; 32]),
         )
         .expect("verification should pass"),
         Vec::new(),

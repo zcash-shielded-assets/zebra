@@ -15,7 +15,7 @@ use zebra_chain::{
     fmt::humantime_seconds,
     parameters::Network,
     serialization::ZcashDeserializeInto,
-    transaction::{Transaction, VerifiedUnminedTx},
+    transaction::{SigHash, Transaction, VerifiedUnminedTx},
     transparent::{self, OutPoint},
 };
 use zebra_consensus::transaction as tx;
@@ -953,6 +953,7 @@ async fn mempool_reverifies_after_tip_change() -> Result<(), Report> {
                     0,
                     0,
                     std::sync::Arc::new(vec![]),
+                    SigHash([0; 32]),
                 )
                 .expect("verification should pass"),
             ));
@@ -1015,6 +1016,7 @@ async fn mempool_reverifies_after_tip_change() -> Result<(), Report> {
                     0,
                     0,
                     std::sync::Arc::new(vec![]),
+                    SigHash([0; 32]),
                 )
                 .expect("verification should pass"),
             ));

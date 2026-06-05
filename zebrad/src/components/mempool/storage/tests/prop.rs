@@ -16,7 +16,7 @@ use zebra_chain::{
     sapling,
     serialization::AtLeastOne,
     sprout,
-    transaction::{self, JoinSplitData, Transaction, UnminedTxId, VerifiedUnminedTx},
+    transaction::{self, JoinSplitData, SigHash, Transaction, UnminedTxId, VerifiedUnminedTx},
     transparent, LedgerState,
 };
 
@@ -492,6 +492,7 @@ impl SpendConflictTestInput {
                 0,
                 0,
                 std::sync::Arc::new(vec![]),
+                SigHash([0; 32]),
             )
             .expect("verification should pass"),
             VerifiedUnminedTx::new(
@@ -501,6 +502,7 @@ impl SpendConflictTestInput {
                 0,
                 0,
                 std::sync::Arc::new(vec![]),
+                SigHash([0; 32]),
             )
             .expect("verification should pass"),
         )
@@ -529,6 +531,7 @@ impl SpendConflictTestInput {
                 0,
                 0,
                 std::sync::Arc::new(vec![]),
+                SigHash([0; 32]),
             )
             .expect("verification should pass"),
             VerifiedUnminedTx::new(
@@ -538,6 +541,7 @@ impl SpendConflictTestInput {
                 0,
                 0,
                 std::sync::Arc::new(vec![]),
+                SigHash([0; 32]),
             )
             .expect("verification should pass"),
         )
@@ -759,8 +763,8 @@ impl SpendConflictTestInput {
     /// present in the `conflicts` set.
     ///
     /// This may clear the entire shielded data.
-    fn remove_orchard_actions_with_conflicts(
-        maybe_shielded_data: &mut Option<orchard::ShieldedData>,
+    fn remove_orchard_actions_with_conflicts<Flavor: orchard::ShieldedDataFlavor>(
+        maybe_shielded_data: &mut Option<orchard::ShieldedData<Flavor>>,
         conflicts: &HashSet<orchard::Nullifier>,
     ) {
         if let Some(shielded_data) = maybe_shielded_data.take() {
@@ -772,7 +776,7 @@ impl SpendConflictTestInput {
                 .collect();
 
             if let Ok(actions) = AtLeastOne::try_from(updated_actions) {
-                *maybe_shielded_data = Some(orchard::ShieldedData {
+                *maybe_shielded_data = Some(orchard::ShieldedData::<Flavor> {
                     actions,
                     ..shielded_data
                 });
@@ -820,7 +824,7 @@ struct SaplingSpendConflict<A: sapling::AnchorVariant + Clone> {
 /// A conflict caused by revealing the same Orchard nullifier.
 #[derive(Arbitrary, Clone, Debug)]
 struct OrchardSpendConflict {
-    new_shielded_data: DisplayToDebug<orchard::ShieldedData>,
+    new_shielded_data: DisplayToDebug<orchard::ShieldedData<orchard::OrchardVanilla>>,
 }
 
 impl SpendConflictForTransactionV4 {
@@ -971,7 +975,11 @@ impl OrchardSpendConflict {
     /// the new action is inserted in the transaction.
     ///
     /// The transaction will then conflict with any other transaction with the same new nullifier.
-    pub fn apply_to(self, orchard_shielded_data: &mut Option<orchard::ShieldedData>) {
+    // TODO: Consider adding support of OrchardZSA.
+    pub fn apply_to(
+        self,
+        orchard_shielded_data: &mut Option<orchard::ShieldedData<orchard::OrchardVanilla>>,
+    ) {
         if let Some(shielded_data) = orchard_shielded_data.as_mut() {
             shielded_data
                 .actions
