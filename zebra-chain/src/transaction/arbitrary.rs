@@ -879,7 +879,7 @@ impl Arbitrary for Transaction {
             NetworkUpgrade::Blossom | NetworkUpgrade::Heartwood | NetworkUpgrade::Canopy => {
                 Self::v4_strategy(ledger_state)
             }
-            NetworkUpgrade::Nu5 | NetworkUpgrade::Nu6 | NetworkUpgrade::Nu6_1 => prop_oneof![
+            NetworkUpgrade::Nu5 | NetworkUpgrade::Nu6 | NetworkUpgrade::Nu6_1 | NetworkUpgrade::Nu6_2 => prop_oneof![
                 Self::v4_strategy(ledger_state.clone()),
                 Self::v5_strategy(ledger_state)
             ]
@@ -968,6 +968,7 @@ impl Arbitrary for VerifiedUnminedTx {
                         transaction,
                         miner_fee,
                         legacy_sigop_count: sigops,
+                        p2sh_sigop_count: 0,
                         conventional_actions,
                         unpaid_actions,
                         fee_weight_ratio,
