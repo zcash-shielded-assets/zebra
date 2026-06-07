@@ -82,7 +82,7 @@ use tokio::{pin, select, sync::oneshot};
 use tower::{builder::ServiceBuilder, util::BoxService, ServiceExt};
 use tracing_futures::Instrument;
 
-use zebra_chain::block::genesis::regtest_genesis_block;
+use zebra_chain::block::genesis::{regtest_genesis_block, zsa_testnet_genesis_block};
 use zebra_consensus::router::BackgroundTaskHandles;
 use zebra_rpc::{methods::RpcImpl, server::RpcServer, SubmitBlockChannel};
 
@@ -154,8 +154,13 @@ impl StartCmd {
 
         let config = APPLICATION.config();
         let is_regtest = config.network.network.is_regtest();
+        let is_zsa_testnet = config
+            .network
+            .network
+            .parameters()
+            .is_some_and(|p| p.is_zsa_testnet());
 
-        let config = if is_regtest {
+        let config = if is_regtest || is_zsa_testnet {
             Arc::new(ZebradConfig {
                 mempool: mempool::Config {
                     debug_enable_at_height: Some(0),
@@ -409,21 +414,27 @@ impl StartCmd {
         );
 
         info!("spawning syncer task");
-        // In regtest, commit the genesis block directly (bypassing the syncer's genesis
-        // download, which requires a connected peer). Then run the syncer normally so
-        // that multi-hop block propagation works: gossiped blocks that arrive out of
-        // order (e.g. only the latest tip hash was gossiped) will be recovered by the
-        // syncer using block locators within REGTEST_SYNC_RESTART_DELAY (2 seconds).
-        if is_regtest
+        // In regtest and ZSA testnet, commit the genesis block directly (bypassing
+        // the syncer's genesis download, which requires a connected peer). Then run the
+        // syncer normally so that multi-hop block propagation works: gossiped blocks
+        // that arrive out of order (e.g. only the latest tip hash was gossiped) will be
+        // recovered by the syncer using block locators.
+        if (is_regtest || is_zsa_testnet)
             && !syncer
                 .state_contains(config.network.network.genesis_hash())
                 .await?
         {
+            let genesis_block = if is_regtest {
+                regtest_genesis_block()
+            } else {
+                zsa_testnet_genesis_block()
+            };
+
             let genesis_hash = block_verifier_router
                 .clone()
-                .oneshot(zebra_consensus::Request::Commit(regtest_genesis_block()))
+                .oneshot(zebra_consensus::Request::Commit(genesis_block))
                 .await
-                .expect("should validate Regtest genesis block");
+                .expect("should validate genesis block");
 
             assert_eq!(
                 genesis_hash,

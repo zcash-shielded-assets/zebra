@@ -1,0 +1,53 @@
+# ZSA Testnet configuration for zebrad.
+#
+# Start with: ./start-zsatestnet.sh
+#
+# This config sets up a node for the ZSA testnet — a persistent test network
+# for Zcash Shielded Assets testing where all Network Upgrades activate at
+# height 1.
+
+[consensus]
+checkpoint_sync = true
+
+[mempool]
+eviction_memory_time = "1h"
+
+[metrics]
+
+[mining]
+# Address to receive mined block rewards (testnet transparent).
+miner_address = "tmKAYVvzNW6PQ52gpeRSfNi75CfHZJhqcYB"
+# visual local useless faith secret exile tortoise blame owner deliver spike egg erupt kick enroll dog memory hire december live wrist such illegal make
+# Identifier for ZSA testnet coinbase transactions.
+extra_coinbase_data = "ZSA Testnet"
+internal_miner = true
+
+[network]
+cache_dir = true
+# ZSA testnet has no public DNS seeders yet — configure peers manually or
+# run multiple local nodes.
+initial_testnet_peers = []
+# Use testnet default port.
+listen_addr = "0.0.0.0:18233"
+# Select the ZSA testnet variant.
+network = "Testnet"
+testnet_variant = "zsa"
+peerset_initial_target_size = 10
+
+[rpc]
+cookie_dir = "cache_dir"
+debug_force_finished_sync = false
+enable_cookie_auth = true
+
+[state]
+cache_dir = "cache_dir"
+delete_old_database = true
+ephemeral = false
+
+[sync]
+download_concurrency_limit = 10
+full_verify_concurrency_limit = 10
+parallel_cpu_threads = 0
+
+[tracing]
+use_color = true

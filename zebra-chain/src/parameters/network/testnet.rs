@@ -1052,6 +1052,63 @@ impl Parameters {
         })
     }
 
+    /// Creates a new instance of [`Parameters`] for the ZSA testnet.
+    ///
+    /// The ZSA testnet is a persistent test network for Zcash Shielded Assets (ZSA) testing,
+    /// with all Network Upgrades activating at height 1.
+    pub fn new_zsa_testnet() -> Self {
+        use super::zsa_testnet;
+
+        let activation_heights = zsa_testnet::zsa_testnet_activation_heights();
+
+        let parameters = Self::build()
+            .with_genesis_hash(zsa_testnet::ZSA_TESTNET_GENESIS_HASH)
+            .expect("hard-coded ZSA testnet genesis hash must parse")
+            .with_network_magic(magics::ZSA_TESTNET)
+            .expect("ZSA testnet network magic must be valid")
+            .with_activation_heights(activation_heights)
+            .expect("ZSA testnet activation heights must be valid")
+            .with_slow_start_interval(Height(0))
+            // Same as testnet: 2^251 - 1 from the Zcash protocol spec.
+            .with_target_difficulty_limit(
+                ExpandedDifficulty::from((U256::one() << 251) - 1)
+                    .to_compact()
+                    .to_expanded()
+                    .expect("testnet difficulty limit is a valid expanded value"),
+            )
+            .expect("ZSA testnet difficulty limit must be valid")
+            // Real PoW for a persistent network.
+            .with_disable_pow(false)
+            // Match default testnet behavior: coinbase must be shielded.
+            .with_unshielded_coinbase_spends(false)
+            .clear_funding_streams()
+            .with_lockbox_disbursements(Vec::<ConfiguredLockboxDisbursement>::new())
+            // Disable the Orchard-disable soft fork — not needed on a fresh chain.
+            .disable_temporary_orchard_disabling_soft_fork()
+            // Genesis-only checkpoints.
+            .with_checkpoints(ConfiguredCheckpoints::Default(false))
+            .expect("ZSA testnet checkpoints must be valid");
+
+        // Check that the configured funding streams address periods are sufficient for
+        // the configured activation heights and halving intervals.
+        //
+        // We must set the network name before this check so that the correct address
+        // periods are calculated.
+        let network = Self {
+            network_name: zsa_testnet::ZSA_TESTNET_NETWORK_NAME.to_string(),
+            ..parameters.finish()
+        };
+
+        // Verify genesis checkpoint matches.
+        assert_eq!(
+            network.checkpoints().hash(Height(0)),
+            Some(network.genesis_hash()),
+            "ZSA testnet genesis checkpoint must match genesis hash"
+        );
+
+        network
+    }
+
     /// Returns true if the instance of [`Parameters`] represents the default public Testnet.
     pub fn is_default_testnet(&self) -> bool {
         self == &Self::default()
@@ -1093,6 +1150,11 @@ impl Parameters {
                 == should_allow_unshielded_coinbase_spends
             && self.pre_blossom_halving_interval == pre_blossom_halving_interval
             && self.post_blossom_halving_interval == post_blossom_halving_interval
+    }
+
+    /// Returns true if the instance of [`Parameters`] represents the ZSA testnet.
+    pub fn is_zsa_testnet(&self) -> bool {
+        self.network_magic == magics::ZSA_TESTNET
     }
 
     /// Returns the network name

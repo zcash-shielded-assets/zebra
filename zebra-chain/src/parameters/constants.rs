@@ -26,6 +26,8 @@ pub mod magics {
     pub const TESTNET: Magic = Magic([0xfa, 0x1a, 0xf9, 0xbf]);
     /// The regtest, see <https://github.com/zcash/zcash/blob/master/src/chainparams.cpp#L716-L719>
     pub const REGTEST: Magic = Magic([0xaa, 0xe8, 0x3f, 0x5f]);
+    /// The ZSA testnet magic: `b"ZSA1"`.
+    pub const ZSA_TESTNET: Magic = Magic(*b"ZSA1");
 }
 
 /// The block heights at which network upgrades activate.

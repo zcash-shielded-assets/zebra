@@ -15,6 +15,7 @@ mod error;
 pub mod magic;
 pub mod subsidy;
 pub mod testnet;
+pub mod zsa_testnet;
 
 #[cfg(test)]
 mod tests;
@@ -186,6 +187,14 @@ impl Network {
             testnet::Parameters::new_regtest(params)
                 .expect("regtest parameters should always be valid"),
         )
+    }
+
+    /// Creates a new [`Network::Testnet`] with the ZSA testnet [`testnet::Parameters`].
+    ///
+    /// The ZSA testnet is a persistent test network for Zcash Shielded Assets (ZSA) testing,
+    /// with all Network Upgrades activating at height 1.
+    pub fn new_zsa_testnet() -> Self {
+        Self::Testnet(Arc::new(testnet::Parameters::new_zsa_testnet()))
     }
 
     /// Returns true if the network is the default Testnet, or false otherwise.
@@ -409,6 +418,7 @@ impl FromStr for Network {
         match string.to_lowercase().as_str() {
             "mainnet" => Ok(Network::Mainnet),
             "testnet" => Ok(Network::new_default_testnet()),
+            "zsatestnet" => Ok(Network::new_zsa_testnet()),
             _ => Err(InvalidNetworkError(string.to_owned())),
         }
     }

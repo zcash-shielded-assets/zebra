@@ -753,3 +753,186 @@ fn temporary_orchard_disabling_soft_fork_heights() {
     );
     assert!(!disabled.is_temporary_orchard_disabling_soft_fork_activation_height(testnet_height));
 }
+
+/// Checks that the ZSA testnet has all NUs at height 1 except Genesis at height 0.
+#[test]
+fn check_zsa_testnet_activation_heights() {
+    let _init_guard = zebra_test::init();
+
+    let network = Network::new_zsa_testnet();
+
+    // Genesis must always be at height 0
+    let genesis_height = NetworkUpgrade::Genesis
+        .activation_height(&network)
+        .expect("Genesis must have an activation height");
+    assert_eq!(
+        genesis_height,
+        Height(0),
+        "ZSA testnet Genesis must activate at height 0"
+    );
+
+    // All other NUs must activate at height 1
+    for nu in NetworkUpgrade::iter().skip(1) {
+        let activation_height = nu
+            .activation_height(&network)
+            .expect("each NU must have an activation height");
+
+        assert_eq!(
+            activation_height,
+            Height(1),
+            "ZSA testnet NU {nu} must activate at height 1, got {activation_height:?}"
+        );
+    }
+}
+
+/// Checks that the ZSA testnet `full_activation_list()` includes all expected NUs.
+#[test]
+fn check_zsa_testnet_full_activation_list() {
+    let _init_guard = zebra_test::init();
+
+    let network = Network::new_zsa_testnet();
+
+    // We expect the first 11 network upgrades to be included: Genesis through NU7
+    let expected_network_upgrades: Vec<_> = NetworkUpgrade::iter().take(11).collect();
+    let full_activation_list_nus: Vec<_> = network
+        .full_activation_list()
+        .into_iter()
+        .map(|(_, nu)| nu)
+        .collect();
+
+    for expected_nu in &expected_network_upgrades {
+        assert!(
+            full_activation_list_nus.contains(expected_nu),
+            "ZSA testnet full activation list should contain expected NU {expected_nu}"
+        );
+    }
+
+    // Genesis should be at height 0, all others at height 1
+    for (height, nu) in network.full_activation_list() {
+        if nu == NetworkUpgrade::Genesis {
+            assert_eq!(height, Height(0), "Genesis must be at height 0");
+        } else {
+            assert_eq!(
+                height,
+                Height(1),
+                "NU {nu} must be at height 1 in ZSA testnet"
+            );
+        }
+    }
+}
+
+/// Checks that the ZSA testnet network name and identification work correctly.
+#[test]
+fn check_zsa_testnet_identity() {
+    let _init_guard = zebra_test::init();
+
+    let network = Network::new_zsa_testnet();
+
+    // Network name
+    assert_eq!(
+        network.to_string(),
+        "ZSATestnet",
+        "ZSA testnet should display as 'ZSATestnet'"
+    );
+
+    // is_zsa_testnet()
+    let params = network
+        .parameters()
+        .expect("ZSA testnet must have parameters");
+    assert!(
+        params.is_zsa_testnet(),
+        "is_zsa_testnet() must return true for ZSA testnet"
+    );
+
+    // Not default testnet
+    assert!(
+        !params.is_default_testnet(),
+        "is_default_testnet() must return false for ZSA testnet"
+    );
+
+    // Not regtest
+    assert!(
+        !params.is_regtest(),
+        "is_regtest() must return false for ZSA testnet"
+    );
+
+    // Network magic
+    assert_eq!(
+        params.network_magic(),
+        crate::parameters::constants::magics::ZSA_TESTNET,
+        "ZSA testnet must use ZSA_TESTNET magic"
+    );
+
+    // Lowercase name for state directory isolation
+    assert_eq!(
+        network.lowercase_name(),
+        "zsatestnet",
+        "ZSA testnet lowercase name must be 'zsatestnet'"
+    );
+}
+
+/// Checks that the ZSA testnet parameters match expected values.
+#[test]
+fn check_zsa_testnet_parameters() {
+    let _init_guard = zebra_test::init();
+
+    let network = Network::new_zsa_testnet();
+    let params = network
+        .parameters()
+        .expect("ZSA testnet must have parameters");
+
+    // Slow start interval should be 0
+    assert_eq!(
+        params.slow_start_interval(),
+        Height(0),
+        "ZSA testnet slow start must be 0"
+    );
+
+    // PoW should NOT be disabled
+    assert!(!params.disable_pow(), "ZSA testnet must have PoW enabled");
+
+    // Unshielded coinbase spends should be disabled
+    assert!(
+        !params.should_allow_unshielded_coinbase_spends(),
+        "ZSA testnet must not allow unshielded coinbase spends"
+    );
+
+    // No funding streams by default
+    assert!(
+        params.funding_streams().is_empty(),
+        "ZSA testnet must have no funding streams by default"
+    );
+
+    // No Orchard-disabling soft fork
+    assert_eq!(
+        params.temporary_orchard_disabling_soft_fork_height(),
+        None,
+        "ZSA testnet must have no Orchard-disable soft fork"
+    );
+
+    // Checkpoints should contain genesis
+    let checkpoints = params.checkpoints();
+    assert!(
+        checkpoints.contains(Height(0)),
+        "ZSA testnet checkpoints must contain genesis height"
+    );
+    assert_eq!(
+        checkpoints.hash(Height(0)),
+        Some(params.genesis_hash()),
+        "ZSA testnet genesis checkpoint must match genesis hash"
+    );
+}
+
+/// Checks that `Network::from_str` works for ZSA testnet.
+#[test]
+fn check_zsa_testnet_from_str() {
+    let _init_guard = zebra_test::init();
+
+    use std::str::FromStr;
+
+    let network = Network::from_str("zsatestnet").expect("should parse 'zsatestnet'");
+    assert!(network.parameters().unwrap().is_zsa_testnet());
+
+    let network = Network::from_str("ZSATestnet").expect("should parse 'ZSATestnet'");
+    assert!(network.parameters().unwrap().is_zsa_testnet());
+}

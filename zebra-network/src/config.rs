@@ -614,6 +614,17 @@ struct DTestnetParameters {
     temporary_orchard_disabling_soft_fork_height: Option<u32>,
 }
 
+/// Selects which testnet variant to use when `network = "Testnet"`.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum TestnetVariant {
+    /// The default public testnet.
+    #[default]
+    Normal,
+    /// The ZSA testnet — all NUs active at height 1, custom genesis, magic `b"ZSA1"`.
+    ZSA,
+}
+
 /// Network configuration used during deserialization.
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
@@ -641,6 +652,10 @@ struct DConfig {
     external_addr: Option<String>,
     network: DNetwork,
 
+    /// Selects the testnet variant when `network = "Testnet"`.
+    #[serde(default)]
+    testnet_variant: TestnetVariant,
+
     /// Legacy testnet parameters, kept for backwards compatibility.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     testnet_parameters: Option<DTestnetParameters>,
@@ -661,6 +676,7 @@ impl Default for DConfig {
             listen_addr: "[::]".to_string(),
             external_addr: None,
             network: Default::default(),
+            testnet_variant: TestnetVariant::default(),
             testnet_parameters: None,
             initial_mainnet_peers: config.initial_mainnet_peers,
             initial_testnet_peers: config.initial_testnet_peers,
@@ -726,13 +742,11 @@ impl From<Config> for DConfig {
         }: Config,
     ) -> Self {
         let dnetwork = match network.kind() {
-            NetworkKind::Testnet => match network
-                .parameters()
-                .filter(|params| !params.is_default_testnet())
-                .map(Into::into)
-            {
-                Some(params) => DNetwork::ConfiguredTestnet(Box::new(params)),
-                None => DNetwork::DefaultForKind(NetworkKind::Testnet),
+            NetworkKind::Testnet => match network.parameters() {
+                Some(params) if !params.is_zsa_testnet() && !params.is_default_testnet() => {
+                    DNetwork::ConfiguredTestnet(Box::new(params.into()))
+                }
+                _ => DNetwork::DefaultForKind(NetworkKind::Testnet),
             },
 
             NetworkKind::Regtest => match network.parameters().map(Into::into) {
@@ -746,10 +760,21 @@ impl From<Config> for DConfig {
             other_kind => DNetwork::DefaultForKind(other_kind),
         };
 
+        let testnet_variant = network
+            .parameters()
+            .map_or(TestnetVariant::Normal, |p| {
+                if p.is_zsa_testnet() {
+                    TestnetVariant::ZSA
+                } else {
+                    TestnetVariant::Normal
+                }
+            });
+
         DConfig {
             listen_addr: listen_addr.to_string(),
             external_addr: external_addr.map(|addr| addr.to_string()),
             network: dnetwork,
+            testnet_variant,
             testnet_parameters: None,
             initial_mainnet_peers,
             initial_testnet_peers,
@@ -770,6 +795,7 @@ impl<'de> Deserialize<'de> for Config {
             listen_addr,
             external_addr,
             network: dnetwork,
+            testnet_variant,
             testnet_parameters,
             initial_mainnet_peers,
             initial_testnet_peers,
@@ -789,6 +815,11 @@ impl<'de> Deserialize<'de> for Config {
             (DNetwork::DefaultForKind(NetworkKind::Mainnet), _) => Network::Mainnet,
             (DNetwork::DefaultForKind(NetworkKind::Testnet), Some(params)) => {
                 build_configured_testnet::<D>(params, &initial_testnet_peers)?
+            }
+            (DNetwork::DefaultForKind(NetworkKind::Testnet), None)
+                if testnet_variant == TestnetVariant::ZSA =>
+            {
+                Network::new_zsa_testnet()
             }
             (DNetwork::DefaultForKind(NetworkKind::Testnet), None) => {
                 Network::new_default_testnet()
